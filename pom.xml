@@ -5,7 +5,7 @@
 
     <groupId>so.obens</groupId>
     <artifactId>obens-sdk</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
     <name>Obens SDK</name>
     <description>SDK for the Obens integration API: push farmers, facilities and partners under your own ids</description>
 
