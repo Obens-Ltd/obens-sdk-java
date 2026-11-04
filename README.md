@@ -81,6 +81,17 @@ var facilities = client.syncer(Syncer.Kind.FACILITIES, Mapper.<Site>builder()
     .build());
 ```
 
+### Facilities of a farmer
+
+A farmer can own many facilities (orchards, plots...). Give the farmer's external id in `subActorExternalId` and the
+facility belongs to that farmer. The farmer must have been pushed first. A facility's id is unique **per owner**, so
+read it back with the same farmer:
+
+```java
+Mapper.<Site>builder().field("externalId", Site::id).field("subActorExternalId", Site::farmerId).field("info.name", Site::title)
+client.facilities().get("orchard-12", "farmer-42");
+```
+
 ## 6. Match your ids to platform ids
 
 ```java

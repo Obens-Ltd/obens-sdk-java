@@ -47,7 +47,13 @@ public final class Resource {
     }
 
     public Map<String, Object> get(String externalId) {
-        return http.request("GET", path + "/" + encode(externalId), null, new TypeReference<>() {
+        return get(externalId, null);
+    }
+
+    /** {@code subActor}: the external id of the farmer a facility belongs to (facility ids are unique per owner). */
+    public Map<String, Object> get(String externalId, String subActor) {
+        var query = subActor == null || subActor.isBlank() ? "" : "?sub-actor=" + encode(subActor);
+        return http.request("GET", path + "/" + encode(externalId) + query, null, new TypeReference<>() {
         });
     }
 
