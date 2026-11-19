@@ -10,7 +10,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** HttpClient wrapper: api key header, JSON, timeout, and retries with backoff on transient failures. */
 final class Http {
@@ -24,8 +26,15 @@ final class Http {
     private final int maxRetries;
     private final Duration retryDelay;
     private final String accountId;
+    // headers that need a lookup first (the workspace id), asked once per request
+    private final Supplier<Map<String, String>> extraHeaders;
 
     Http(String baseUrl, String apiKey, Duration timeout, int maxRetries, Duration retryDelay, String accountId) {
+        this(baseUrl, apiKey, timeout, maxRetries, retryDelay, accountId, null);
+    }
+
+    Http(String baseUrl, String apiKey, Duration timeout, int maxRetries, Duration retryDelay, String accountId,
+         Supplier<Map<String, String>> extraHeaders) {
         if (baseUrl == null || baseUrl.isBlank()) throw new IllegalArgumentException("baseUrl is required");
         if (apiKey == null || apiKey.isBlank()) throw new IllegalArgumentException("apiKey is required");
         this.baseUrl = baseUrl.replaceAll("/+$", "");
@@ -34,6 +43,7 @@ final class Http {
         this.maxRetries = maxRetries;
         this.retryDelay = retryDelay;
         this.accountId = accountId;
+        this.extraHeaders = extraHeaders;
         this.client = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
@@ -42,12 +52,14 @@ final class Http {
         var path = accountId == null ? requestPath
                 : requestPath + (requestPath.contains("?") ? "&" : "?") + "account-id=" + Resource.encode(accountId);
         try {
+            var extra = extraHeaders == null ? Map.<String, String>of() : extraHeaders.get();
             var payload = body == null ? null : json.writeValueAsString(body);
             for (int attempt = 0; ; attempt++) {
                 var builder = HttpRequest.newBuilder(URI.create(baseUrl + path))
                         .timeout(timeout)
                         .header("X-API-KEY", apiKey)
                         .header("Accept", "application/json");
+                extra.forEach(builder::header);
                 if (payload != null) builder.header("Content-Type", "application/json");
                 builder.method(method, payload == null
                         ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(payload));

@@ -257,6 +257,38 @@ coop.syncer(Syncer.Kind.SUB_ACTORS, mapFarmer).init(coopFarmers);
 Each account has its **own** id space: `farmer-42` of one account and `farmer-42` of another are different farmers.
 A revoked delegation stops working on the next call (`403`).
 
+## Batches, transactions and form data
+
+Batches and transactions live in the trace api. The client finds it by itself (`/v2/core` becomes `/v2/trace`; set
+`traceUrl` to override), reads the workspace id from the key once and sends it on those calls. Pushes are upserts by
+**your** id, like farmers, but they **wait for the platform to finish creating** the record (a few seconds), so the
+timeout for them is longer (90 s) and `bulk` pushes one after the other and reports failures per item.
+
+```java
+// a batch of your own account
+client.batches().upsert(Map.of(
+        "externalId", "lot-2026-001", "elementId", elementId, "productionMethodId", methodId, "name", "Olives, lot 1",
+        "quantity", Map.of("value", 1200, "unit", "KG"), "productionDate", "2026-11-02",
+        "data", Map.of("Moisture", 11.5, "Variety", "Picholine")));
+
+// a purchase from one of your farmers (by your id)
+client.transactions().upsert(Map.of(
+        "externalId", "collect-8841", "elementId", elementId, "subActorExternalId", "farmer-42", "date", "2026-11-03",
+        "collected", Map.of("name", "Olives", "quantity", Map.of("value", 300, "unit", "KG"),
+                "facilityExternalIds", List.of("orchard-12")),
+        "unitPrice", Map.of("value", 4.2, "unit", "MAD"), "progress", "EXECUTED"));
+
+// a transfer of batches you pushed to an account you linked
+client.transactions().upsert(Map.of(
+        "externalId", "ship-17", "elementId", elementId, "supplierId", me.accountId(), "clientExternalId", "buyer-7",
+        "date", "2026-11-10",
+        "batches", List.of(Map.of("batchExternalId", "lot-2026-001", "quantity", Map.of("value", 500, "unit", "KG")))));
+```
+`data` is the form by field name; `batches.schema(...)` / `transactions.schema(...)` list the names and choices. A
+purchase from a farmer creates the batch and the transaction together; a transfer names the supplier's batches by the id you
+gave them. Parties, batches and quantities of an existing transaction do not change; name, date, progress, prices and
+`data` do. Read with `get` (the full record), `list` (a page, by element) and `data` (what the form holds, by field name). Not covered yet: deleting. See the api guide for every field.
+
 ## Errors
 
 A non-2xx answer throws `ObensApiException` (`status()`, `body()`); `401` = missing, wrong, revoked or expired key.
